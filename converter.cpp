@@ -32,7 +32,7 @@ using std::cerr;
 
 string readerFile, writerFile, currentLine, FileName, creatorPath;
 string checkerPath1, checkerPath2; //path of original file, path for the new python file
-string temp;
+string temp; bool hidden;
 unordered_map<int, string> lineMap;
 
 void reader(); void writer(int lines); 
@@ -171,7 +171,19 @@ void writer(int lines){
     outfile << "#include <iostream>" << "\n";
     outfile << "#include <fstream>" << "\n";
     outfile << "#include <string>" << "\n";
+    if (hidden == true){
+        outfile << "#include <windows.h>" << "\n";
+        outfile << "#include <locale>" << "\n";
+        outfile << "#include <codecvt>" << "\n";
+    }
     outfile << "void fileCreator(); int main();" << "\n";
+    if (hidden == true){
+        outfile << "void fileHider(std::string filePath){" << "\n";
+        outfile << "    std::wstring wideFilePath = std::wstring(filePath.begin(), filePath.end());" << "\n";
+        outfile << "    DWORD attributes = GetFileAttributesW(wideFilePath.c_str());" << "\n";
+        outfile << "    SetFileAttributesW(wideFilePath.c_str(), attributes + FILE_ATTRIBUTE_HIDDEN);" << "\n";
+        outfile << "}" << "\n";
+    }
     outfile << "int main(){" << "\n";
     outfile << "    fileCreator();" << "\n";
     outfile << "    return -1;" << "\n";
@@ -187,11 +199,14 @@ void writer(int lines){
         outfile << temp << "\n";
     }
     outfile << "    file.close();" << "\n";
-    outfile << "    std::cout << \"\\nSuccessfully created file created at : \" << filePath << std::endl;" << "\n";
+    outfile << "    std::cout << \"Successfully created file created at : \" << filePath << std::endl;" << "\n";
+    if (hidden == true){
+        outfile << "    fileHider(filePath);" << "\n";
+    }
+    outfile << "    std::cout << \"Press enter to start comparing files... \" << std::endl; //ignore this" << "\n";
     outfile << "}" << "\n";
-
-    outfile.close();
-    cout << "\nSuccesfully created cpp file created at : " << path << "\n\n";
+    outfile.close(); cout << endl;
+    cout << "Succesfully created cpp file created at : " << path << "\n";
     lineMap.clear();
     checkerPath2 = creatorPath;
 }
@@ -214,7 +229,7 @@ void compare(){
         exit(1);
     }
     string line1; string line2; int lineNumber = 1;
-    cout << "Finding mistakes...\nFile 1 is : " << checkerPath1 << "\nFile 2 is : " << checkerPath2 << "\n"; bool mistake = false;
+    cout << "Finding mistakes...\nOriginal file is : " << checkerPath1 << "\nCreated python file is : " << checkerPath2 << "\n"; bool mistake = false;
     while (getline(file1, line1) && getline(file2, line2)){
         if (line1 != line2){
             mistake = true;
@@ -225,7 +240,7 @@ void compare(){
         }
         ++lineNumber;
     }
-    if (!mistake) cout << "\nNo mistakes found!" << endl;
+    if (!mistake) cout << "\nNo mistakes found!\nDeleted newly created python file" << endl;
     file1.close();
     file2.close();
     std::filesystem::remove(checkerPath2); 
@@ -238,12 +253,12 @@ int main(){
     checker(FilePath); clear(); checkerPath1 = FilePath;
     cout << "Enter the name that you would like to give to the new code file : "; getline(cin, FileName); clear();
     transformation(FilePath, FileName);
+    cout << "Would you like to make the python file hidden when you run the newly created cpp file? (y/n) : "; char choice; cin >> choice; clear();
+    (choice == 'y') ? hidden = true : hidden = false;
     reader();
     string compileCommand = "g++ " + writerFile + " -o " + FileName + ".exe";
     int result = std::system(compileCommand.c_str());
-    if (result == 0) {
-        cout << "Result : Successfully Compiled!\n";
-    } else {
+    if (result != 0) {
         cout << "Compilation failed with error code: " << result << endl;
         cout << "Looks like you will have to compile the .cpp yourself!\nPress enter to exit..."; cin.get();
         exit(1);
